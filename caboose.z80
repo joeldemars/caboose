@@ -1,0 +1,162 @@
+#include "ti83plus.inc"
+
+.org $4000
+
+.db $80,$0F,0,0,0,0 ;App header
+.db $80,$12,$01,$04
+.db $80,$47,"Caboose"
+.db $80,$81,1
+.db $80,$90
+.db $03,$22,$09,$00
+.db $80,$70
+
+setHook:
+  in a,($06) ;set the hook
+  ld hl,hook
+  bcall(_SetHomescreenHook)
+  bjump(_JForceCmdNoChar)
+
+hook:
+.db $83
+  dec a ;check why the hook was called
+  jr z,keypress
+
+retZ:
+  cp a
+  ret
+
+keypress:
+  ld a,kEnter ;check if Enter was pressed
+  cp b
+  jr nz,retZ
+
+  ld a,(MenuCurrent) ;check if any menu is open
+  or a
+  jr nz,retZ
+
+  ld hl,(editCursor) ;check if cursor is over empty Mathprint box
+  ld a,(hl)
+  cp $EF
+  jr nz,checkToken
+  inc hl
+  ld a,(hl)
+  cp $1E
+  jr nz,checkToken
+
+  ld e,tAns ;replace Mathprint box with Ans
+  bcall(_BufReplace)
+  cp a
+  ret
+
+checkToken:
+  ld hl,(editBtm) ;check if cursor is at end of buffer
+  push de
+  ld de,(editTail)
+  or a
+  sbc hl,de
+  pop de
+  jr nz,retZ
+
+  ld hl,(editCursor) ;check what the token before the cursor is
+  dec hl
+  dec hl
+  ld a,(hl) ;check if it's a 2-byte token
+  cp $BB
+  jr z,miscToken
+  cp $EF
+  jr z,TI84Token
+  push bc
+  ld hl,TwoByteTokens
+  ld bc,TwoByteTokensEnd-TwoByteTokens
+  cpir
+  pop bc
+  ret z
+
+  ld hl,(editCursor) ;check 1-byte tokens
+  dec hl
+  ld a,(hl)
+  ld hl,OneByteTokens
+  push bc
+  ld bc,OneByteTokensEnd-OneByteTokens
+  cpir
+  pop bc
+  jr z,appendAns
+  cp a
+  ret
+
+miscToken:
+  ld hl,(editCursor) ;check miscellaneous 2-byte tokens
+  dec hl
+  ld a,(hl)
+  ld hl,miscTokens
+  push bc
+  ld bc,miscTokensEnd-miscToken
+  ldir
+  pop bc
+  jr z,appendAns
+  cp a
+  ret
+
+TI84Token:
+  ld hl,(editCursor) ;check ti-84 only tokens
+  dec hl
+  ld a,(hl)
+  ld hl,TI84Tokens
+  push bc
+  ld bc,TI84TokensEnd-TI84Tokens
+  cpir
+  pop bc
+  jr z,appendAns
+  cp a
+  ret
+
+appendAns:
+  ld e,tAns ;add Ans to the end of the entry
+  bcall(_BufReplace)
+  bit 5,(iy+$44) ;check if Mathprint is enabled
+  jr nz,retZ2 ;if not, Ans must b manually printed
+  ld hl,ansStr
+
+  ld a,(winBtm) ;modified version of system PutS routine
+  push bc
+  ld a,(winBtm)
+  ld b,a  
+putStr:
+  ld a,(hl)
+  inc hl
+  or a
+  jr z,putStrEnd
+  bcall(_PutC)
+  ld a,(curRow)
+  cp b
+  jr c,putStr
+putStrEnd:
+  pop bc
+retZ2:
+  cp a
+  ret
+
+TwoByteTokens:
+.db tVarMat,tVarLst,tVarEqu,tVarPict,tVarGDB,tVarOut,tVarSys,tGFormat
+TwoByteTokensEnd:
+
+OneByteTokens:
+.db tLBrack,tLBrace,tLParen,tRound,tMax,tMin,tMedian,tMean,tComma,tOr,tXor,tAnd
+.db tEQ,tLT,tGT,tLE,tGE,tNE,tAdd,tSub,tFix,tMul,tDiv,tnPr,tnCr,tYOn,tYOff
+.db tStPic,tRcPic,tStoDB,tRclDB,tVert,tHorz,tDrInv,tDrawF,tChs,tInt,tAbs,tDet
+.db tIdent,tDim,tSum,tProd,tNot,tIPart,tFPart,tSqrt,tCubRt,tLn,tExp,tLog,tALog
+.db tSin,tASin,tCos,tACos,tTan,tATan,tSinH,tASinH,tCoshH,tACosH,tSortA,tSortD
+.db tPower,tXRoot
+OneByteTokensEnd:
+
+miscTokens:
+.db tFinBal,tSubStrng,tStdDev,tVariance,tInvNorm,tNormalPDF,tConj,tReal,tImag
+.db tAngle,tCumSum,tExpr,tLength,tDeltaLst,tRef,tRRef
+miscTokensEnd:
+
+TI84Tokens:
+.db $02,$03,$04,$05,$07,$08,$67,$96,$97,$98
+TI84TokensEnd:
+
+ansStr:
+.db "Ans",0
