@@ -43,7 +43,7 @@ keypress:
   cp $1E
   jr nz,checkToken
 
-  ld e,tAns ;replace Mathprint box with Ans
+  ld de,tAns ;replace Mathprint box with Ans
   bcall(_BufReplace)
   cp a
   ret
@@ -111,7 +111,7 @@ TI84Token:
   ret
 
 appendAns:
-  ld e,tAns ;add Ans to the end of the entry
+  ld de,tAns ;add Ans to the end of the entry
   bcall(_BufReplace)
   bit 5,(iy+$44) ;check if Mathprint is enabled
   jr nz,retZ2 ;if not, Ans must b manually printed
