@@ -1,5 +1,8 @@
 # Caboose
 App for TI-83+ and TI-84+ calculators that adds "Ans" to the end of applicable entries.
+
+![Demo](demo.gif)
+
 ## About
 After enter is pressed, Caboose looks at the entry and adds `Ans` whenever it makes sense, such as when it ends in `-`, `sin(`, or an empty entry box.
 ## Usage
