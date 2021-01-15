@@ -10,13 +10,15 @@
 .db $03,$22,$09,$00
 .db $80,$70
 
-setHook:
-  in a,($06) ;set the hook
-  ld hl,hook
-  bcall(_SetHomescreenHook)
+setHomescreenHook:
+  ld hl,homescreenHook ;set the homecreen hook
+  ld (homescreenHookPtr),hl
+  in a,($06)
+  ld (homescreenHookPtr + 2),a
+  set homescreenHookActive,(iy + hookflags2)
   bjump(_JForceCmdNoChar)
 
-hook:
+homescreenHook:
 .db $83
   dec a ;check why the hook was called
   jr z,keypress
@@ -26,37 +28,35 @@ retZ:
   ret
 
 keypress:
-  ld a,kEnter ;check if Enter was pressed
-  cp b
-  jr nz,retZ
-
-  ld a,(MenuCurrent) ;check if any menu is open
-  or a
-  jr nz,retZ
-
-  ld hl,(editCursor) ;check if cursor is over empty Mathprint box
-  ld a,(hl)
-  cp $EF
-  jr nz,checkToken
-  inc hl
-  ld a,(hl)
-  cp $1E
-  jr nz,checkToken
-
-  ld de,tAns ;replace Mathprint box with Ans
-  bcall(_BufReplace)
+  ld a,b ;check if Enter was pressed
+  cp kEnter
+  jr z,checkIfEntry
+  
   cp a
   ret
 
-checkToken:
+checkIfEntry:
+  bit 3,(iy + $49) ;check if an entry is being recalled
+  jr nz,retZ
+
+checkCursor:
+  ld hl,(editCursor) ;check if cursor is over empty Mathprint box
+  ld a,(hl)
+  cp $EF
+  jr nz,checkIfAtEnd
+  inc hl
+  ld a,(hl)
+  cp $1E
+  jr z,setGetCSCHook
+
+checkIfAtEnd:
   ld hl,(editBtm) ;check if cursor is at end of buffer
-  push de
   ld de,(editTail)
   or a
   sbc hl,de
-  pop de
   jr nz,retZ
 
+checkToken:
   ld hl,(editCursor) ;check what the token before the cursor is
   dec hl
   dec hl
@@ -65,22 +65,21 @@ checkToken:
   jr z,miscToken
   cp $EF
   jr z,TI84Token
-  push bc
   ld hl,TwoByteTokens
   ld bc,TwoByteTokensEnd-TwoByteTokens
   cpir
-  pop bc
+  ld b,kEnter
   ret z
 
+checkOneByteToken:
   ld hl,(editCursor) ;check 1-byte tokens
   dec hl
   ld a,(hl)
   ld hl,OneByteTokens
-  push bc
   ld bc,OneByteTokensEnd-OneByteTokens
   cpir
-  pop bc
-  jr z,appendAns
+  ld b,kEnter
+  jr z,setGetCSCHook
   cp a
   ret
 
@@ -89,11 +88,10 @@ miscToken:
   dec hl
   ld a,(hl)
   ld hl,miscTokens
-  push bc
   ld bc,miscTokensEnd-miscToken
   ldir
-  pop bc
-  jr z,appendAns
+  ld b,kEnter
+  jr z,setGetCSCHook
   cp a
   ret
 
@@ -102,42 +100,48 @@ TI84Token:
   dec hl
   ld a,(hl)
   ld hl,TI84Tokens
-  push bc
   ld bc,TI84TokensEnd-TI84Tokens
   cpir
-  pop bc
-  jr z,appendAns
+  ld b,kEnter
+  jr z,setGetCSCHook
   cp a
   ret
 
-appendAns:
-  ld de,tAns ;add Ans to the end of the entry
-  bcall(_BufReplace)
-  bit 5,(iy+$44) ;check if Mathprint is enabled
-  jr nz,retZ2 ;if not, Ans must b manually printed
-  ld hl,ansStr
-
-  ld a,(winBtm) ;modified version of system PutS routine
-  push bc
-  ld a,(winBtm)
-  ld b,a  
-putStr:
+setGetCSCHook:
+  ld hl,flags + hookflags2 ;set getCSC hook to press enter
+  ld de,appBackUpScreen
   ld a,(hl)
-  inc hl
-  or a
-  jr z,putStrEnd
-  bcall(_PutC)
-  ld a,(curRow)
-  cp b
-  jr c,putStr
-putStrEnd:
-  pop bc
-retZ2:
+  ld (de),a
+  or %00000001
+  ld (hl),a
+  ld hl,getKeyHookPtr
+  inc e
+  ldi
+  ldi
+  ldi
+  ld hl,getCSCHook
+  ld (getKeyHookPtr),hl
+  in a,($06)
+  ld (getKeyHookPtr + 2),a
+  ld b,kAns ;return Ans
+  cp a
+  ret
+
+getCSCHook:
+.db $83
+  ld hl,appBackUpScreen ;restore previous hook
+  ld de,flags + hookflags2
+  ldi
+  ld de,getKeyHookPtr
+  ldi
+  ldi
+  ldi
+  ld a,kEnter ;return Enter
   cp a
   ret
 
 TwoByteTokens:
-.db tVarMat,tVarLst,tVarEqu,tVarPict,tVarGDB,tVarStrng,tVarOut,tVarSys,tGFormat
+.db tVarMat,tVarLst,tVarEqu,tVarPict,tVarGDB,tVarOut,tVarSys,tGFormat
 TwoByteTokensEnd:
 
 OneByteTokens:
@@ -157,6 +161,3 @@ miscTokensEnd:
 TI84Tokens:
 .db $02,$03,$04,$05,$07,$08,$67,$96,$97,$98
 TI84TokensEnd:
-
-ansStr:
-.db "Ans",0
