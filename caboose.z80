@@ -141,7 +141,7 @@ getCSCHook:
   ret
 
 TwoByteTokens:
-.db tVarMat,tVarLst,tVarEqu,tVarPict,tVarGDB,tVarOut,tVarSys,tGFormat
+.db tVarMat,tVarLst,tVarEqu,tVarPict,tVarGDB,tVarStrng,tVarOut,tVarSys,tGFormat
 TwoByteTokensEnd:
 
 OneByteTokens:
