@@ -65,49 +65,76 @@ checkToken:
   jr z,miscToken
   cp $EF
   jr z,TI84Token
-  ld hl,TwoByteTokens
-  ld bc,TwoByteTokensEnd-TwoByteTokens
-  cpir
-  ld b,kEnter
-  ret z
+  ld h,TwoByteTokens >> 8
+  ld l,a
+  xor a
+  or (hl)
+  jr nz,retZ
 
 checkOneByteToken:
   ld hl,(editCursor) ;check 1-byte tokens
   dec hl
+  ld l,(hl)
+  ld h,OneByteTokens >> 8
+  xor a
+  or (hl)
+  ret z
+  
+setGetCSCHook:
+  ld hl,flags + hookflags2 ;set getCSC hook to press enter
+  ld de,appBackUpScreen
   ld a,(hl)
-  ld hl,OneByteTokens
-  ld bc,OneByteTokensEnd-OneByteTokens
-  cpir
-  ld b,kEnter
-  jr z,setGetCSCHook
+  ld (de),a
+  or %00000001
+  ld (hl),a
+  ld hl,getKeyHookPtr
+  inc e
+  ldi
+  ldi
+  ldi
+  ld hl,getCSCHook
+  ld (getKeyHookPtr),hl
+  in a,($06)
+  ld (getKeyHookPtr + 2),a
+  ld b,kAns ;return Ans
   cp a
   ret
 
 miscToken:
   ld hl,(editCursor) ;check miscellaneous 2-byte tokens
   dec hl
+  ld l,(hl)
+  xor a
+  or (hl)
+  ret z
+
+  ld hl,flags + hookflags2 ;set getCSC hook to press enter
+  ld de,appBackUpScreen
   ld a,(hl)
-  ld hl,miscTokens
-  ld bc,miscTokensEnd-miscToken
-  ldir
-  ld b,kEnter
-  jr z,setGetCSCHook
+  ld (de),a
+  or %00000001
+  ld (hl),a
+  ld hl,getKeyHookPtr
+  inc e
+  ldi
+  ldi
+  ldi
+  ld hl,getCSCHook
+  ld (getKeyHookPtr),hl
+  in a,($06)
+  ld (getKeyHookPtr + 2),a
+  ld b,kAns ;return Ans
   cp a
   ret
 
 TI84Token:
   ld hl,(editCursor) ;check ti-84 only tokens
   dec hl
-  ld a,(hl)
-  ld hl,TI84Tokens
-  ld bc,TI84TokensEnd-TI84Tokens
-  cpir
-  ld b,kEnter
-  jr z,setGetCSCHook
-  cp a
-  ret
+  ld l,(hl)
+  xor a
+  or (hl)
+  ret z
 
-setGetCSCHook:
   ld hl,flags + hookflags2 ;set getCSC hook to press enter
   ld de,appBackUpScreen
   ld a,(hl)
@@ -139,25 +166,78 @@ getCSCHook:
   ld a,kEnter ;return Enter
   cp a
   ret
+getCSCHookEnd:
+
+.fill ((getCSCHookEnd & $FF00) + $0100) - getCSCHookEnd ;align tables with 256 byte boundary
 
 TwoByteTokens:
-.db tVarMat,tVarLst,tVarEqu,tVarPict,tVarGDB,tVarStrng,tVarOut,tVarSys,tGFormat
-TwoByteTokensEnd:
+.db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0
+.db 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.db 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0
+.db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
 OneByteTokens:
-.db tLBrack,tLBrace,tLParen,tRound,tMax,tMin,tMedian,tMean,tComma,tOr,tXor,tAnd
-.db tEQ,tLT,tGT,tLE,tGE,tNE,tAdd,tSub,tFix,tMul,tDiv,tnPr,tnCr,tYOn,tYOff
-.db tStPic,tRcPic,tStoDB,tRclDB,tVert,tHorz,tDrInv,tDrawF,tChs,tInt,tAbs,tDet
-.db tIdent,tDim,tSum,tProd,tNot,tIPart,tFPart,tSqrt,tCubRt,tLn,tExp,tLog,tALog
-.db tSin,tASin,tCos,tACos,tTan,tATan,tSinH,tASinH,tCoshH,tACosH,tSortA,tSortD
-.db tPower,tXRoot
-OneByteTokensEnd:
+.db 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0
+.db 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1
+.db 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0
+.db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0
+.db 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1
+.db 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.db 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.db 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0
+.db 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0
+.db 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1
+.db 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0
+.db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.db 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.db 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
 miscTokens:
-.db tFinBal,tSubStrng,tStdDev,tVariance,tInvNorm,tNormalPDF,tConj,tReal,tImag
-.db tAngle,tCumSum,tExpr,tLength,tDeltaLst,tRef,tRRef
-miscTokensEnd:
+.db 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0
+.db 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0
+.db 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0
+.db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
 TI84Tokens:
-.db $02,$03,$04,$05,$07,$08,$67,$96,$97,$98
-TI84TokensEnd:
+.db 0, 0, 1, 1, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0
+.db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.db 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0
+.db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.db 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0
+.db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+.db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
