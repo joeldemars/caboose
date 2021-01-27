@@ -104,6 +104,7 @@ miscToken:
   ld hl,(editCursor) ;check miscellaneous 2-byte tokens
   dec hl
   ld l,(hl)
+  ld h,miscTokens >> 8
   xor a
   or (hl)
   ret z
@@ -131,6 +132,7 @@ TI84Token:
   ld hl,(editCursor) ;check ti-84 only tokens
   dec hl
   ld l,(hl)
+  ld h,TI84Tokens >> 8
   xor a
   or (hl)
   ret z
